@@ -30,6 +30,7 @@ namespace LaserPuzzle
         [SerializeField] private Color color = Color.red;
 
         private LineRenderer lineRenderer;
+        private LaserGoal currentGoal;
 
         public Collider HitCollider { get; private set; }
         public Vector3 EndPosition { get; private set; }
@@ -61,6 +62,11 @@ namespace LaserPuzzle
         private void Update()
         {
             UpdateLaser();
+        }
+
+        private void OnDisable()
+        {
+            SetActiveGoal(null);
         }
 
         private void CacheLineRenderer()
@@ -117,6 +123,7 @@ namespace LaserPuzzle
 
             HitCollider = null;
             EndPosition = origin + direction * maxDistance;
+            LaserGoal hitGoal = null;
 
             if (Physics.Raycast(
                     origin,
@@ -128,10 +135,61 @@ namespace LaserPuzzle
             {
                 EndPosition = hit.point;
                 HitCollider = hit.collider;
+
+                // Raycastで当たったColliderがゴールかどうかを調べます。
+                // ゴールならhitGoalにLaserGoalが入り、壁などならnullのままです。
+                TryFindGoal(hit.collider, out hitGoal);
+            }
+
+            // StraightLaserは編集モードでも動くため、CLEAR判定は再生中だけ更新します。
+            if (Application.isPlaying)
+            {
+                SetActiveGoal(hitGoal);
             }
 
             lineRenderer.SetPosition(0, origin);
             lineRenderer.SetPosition(1, EndPosition);
+        }
+
+        private bool TryFindGoal(Collider hitCollider, out LaserGoal hitGoal)
+        {
+            // まず「ゴールが見つかっていない」状態にします。
+            // out引数なので、呼び出し元のhitGoalにもこの結果が渡ります。
+            hitGoal = null;
+
+            // Raycastで当たったColliderと同じGameObjectからLaserGoalを探します。
+            // 見つかった場合：戻り値はtrue、hitGoalには見つけたLaserGoalが入ります。
+            // 見つからない場合：戻り値はfalse、hitGoalはnullのままです。
+            // ※ColliderとLaserGoalが別の親子オブジェクトにある場合は見つかりません。
+            return hitCollider.TryGetComponent<LaserGoal>(out hitGoal);
+        }
+
+        private void SetActiveGoal(LaserGoal nextGoal)
+        {
+            if (currentGoal == nextGoal)
+            {
+                // 同じゴールに当たり続けている場合も、表示状態を命中中に保ちます。
+                // Awakeの実行順やInspector操作でClearTextが非表示になっても、
+                // 次のフレームで正しい状態へ戻せます。
+                if (currentGoal != null)
+                {
+                    currentGoal.SetLaserHit(true);
+                }
+
+                return;
+            }
+
+            if (currentGoal != null)
+            {
+                currentGoal.SetLaserHit(false);
+            }
+
+            currentGoal = nextGoal;
+
+            if (currentGoal != null)
+            {
+                currentGoal.SetLaserHit(true);
+            }
         }
     }
 }
