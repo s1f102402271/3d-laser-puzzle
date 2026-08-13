@@ -173,7 +173,7 @@
                     "name": "New action",
                     "type": "Button",
                     "id": "cbe876d9-d9da-40ed-9ae4-fd97a442fc36",
-                    "expectedControlType": "Button",
+                    "expectedControlType": "",
                     "processors": "",
                     "interactions": "",
                     "initialStateCheck": false
@@ -221,7 +221,7 @@
                 {
                     "name": "",
                     "id": "1d818057-433c-4c6c-a0e1-a56c6f7b9856",
-                    "path": "",
+                    "path": "<Keyboard>/1",
                     "interactions": "",
                     "processors": "",
                     "groups": "",
@@ -232,7 +232,7 @@
                 {
                     "name": "",
                     "id": "6d6bb131-f842-4369-a969-a1c3ded74261",
-                    "path": "",
+                    "path": "<Keyboard>/2",
                     "interactions": "",
                     "processors": "",
                     "groups": "",

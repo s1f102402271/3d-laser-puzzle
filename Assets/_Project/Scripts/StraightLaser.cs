@@ -22,6 +22,13 @@ namespace LaserPuzzle
         [Tooltip("Trigger Colliderをレーザーの命中対象に含めるかを指定します。")]
         [SerializeField] private QueryTriggerInteraction triggerInteraction = QueryTriggerInteraction.Ignore;
 
+        [Header("Reflection (Provisional)")]
+        [Tooltip("1回の照射で許可する最大反射回数です。仮実装値であり、確定仕様ではありません。")]
+        [SerializeField, Min(0)] private int maxReflections = 3;
+
+        [Tooltip("反射直後に同じ面へ再命中することを避けるための微小距離です。仮実装値です。")]
+        [SerializeField, Min(0.0001f)] private float reflectionOffset = 0.001f;
+
         [Header("Appearance")]
         [Tooltip("レーザーの描画に使用するマテリアルです。プロジェクトの赤いレーザー用マテリアルを設定します。")]
         [SerializeField] private Material laserMaterial;
@@ -52,6 +59,8 @@ namespace LaserPuzzle
         private void OnValidate()
         {
             maxDistance = Mathf.Max(0.01f, maxDistance);
+            maxReflections = Mathf.Max(0, maxReflections);
+            reflectionOffset = Mathf.Max(0.0001f, reflectionOffset);
             width = Mathf.Max(0.001f, width);
 
             CacheLineRenderer();
@@ -85,7 +94,6 @@ namespace LaserPuzzle
             }
 
             lineRenderer.useWorldSpace = true;
-            lineRenderer.positionCount = 2;
             lineRenderer.startWidth = width;
             lineRenderer.endWidth = width;
             lineRenderer.startColor = color;
@@ -119,27 +127,71 @@ namespace LaserPuzzle
 
             Transform source = emissionPoint;
             Vector3 origin = source.position;
-            Vector3 direction = source.forward;
+            Vector3 direction = source.forward.normalized;
+            float remainingDistance = maxDistance;
+            int pointCount = 1;
 
             HitCollider = null;
             EndPosition = origin + direction * maxDistance;
             LaserGoal hitGoal = null;
 
-            if (Physics.Raycast(
-                    origin,
-                    direction,
-                    out RaycastHit hit,
-                    maxDistance,
-                    collisionMask,
-                    triggerInteraction))
+            // 始点 + 最大反射回数分の衝突点 + 最後の終点を確保します。
+            lineRenderer.positionCount = maxReflections + 2;
+            lineRenderer.SetPosition(0, origin);
+
+            for (int reflectionCount = 0; reflectionCount <= maxReflections; reflectionCount++)
             {
+                if (!Physics.Raycast(
+                        origin,
+                        direction,
+                        out RaycastHit hit,
+                        remainingDistance,
+                        collisionMask,
+                        triggerInteraction))
+                {
+                    EndPosition = origin + direction * remainingDistance;
+                    lineRenderer.SetPosition(pointCount, EndPosition);
+                    pointCount++;
+                    break;
+                }
+
                 EndPosition = hit.point;
                 HitCollider = hit.collider;
+                lineRenderer.SetPosition(pointCount, hit.point);
+                pointCount++;
 
                 // Raycastで当たったColliderがゴールかどうかを調べます。
                 // ゴールならhitGoalにLaserGoalが入り、壁などならnullのままです。
-                TryFindGoal(hit.collider, out hitGoal);
+                if (TryFindGoal(hit.collider, out hitGoal))
+                {
+                    break;
+                }
+
+                // LaserBlockingWallが付いた壁と、反射上限に達した場合はここで停止します。
+                if (hit.collider.TryGetComponent<LaserBlockingWall>(out _) ||
+                    reflectionCount == maxReflections)
+                {
+                    break;
+                }
+
+                remainingDistance -= hit.distance;
+                if (remainingDistance <= 0f)
+                {
+                    break;
+                }
+
+                direction = CalculateReflectedDirection(direction, hit.normal);
+                if (direction.sqrMagnitude < Mathf.Epsilon)
+                {
+                    // 学習用TODOが未完成の間は、衝突地点で安全に停止します。
+                    break;
+                }
+
+                direction.Normalize();
+                origin = hit.point + direction * reflectionOffset;
             }
+
+            lineRenderer.positionCount = pointCount;
 
             // StraightLaserは編集モードでも動くため、CLEAR判定は再生中だけ更新します。
             if (Application.isPlaying)
@@ -147,8 +199,15 @@ namespace LaserPuzzle
                 SetActiveGoal(hitGoal);
             }
 
-            lineRenderer.SetPosition(0, origin);
-            lineRenderer.SetPosition(1, EndPosition);
+        }
+
+        private Vector3 CalculateReflectedDirection(Vector3 incomingDirection, Vector3 surfaceNormal)
+        {
+            // TODO (学習ポイント): ここで反射方向を計算してください。
+            // ヒント1: Vector3には、入射ベクトルを面の法線で反射するメソッドがあります。
+            // ヒント2: 第1引数は incomingDirection、第2引数は surfaceNormal です。
+            // ヒント3: 計算結果をreturnします。完成まではVector3.zeroでレーザーを停止させます。
+            return Vector3.Reflect(incomingDirection, surfaceNormal);
         }
 
         private bool TryFindGoal(Collider hitCollider, out LaserGoal hitGoal)
