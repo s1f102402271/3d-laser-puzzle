@@ -4,7 +4,8 @@ using UnityEngine.InputSystem;
 namespace LaserPuzzle
 {
     /// <summary>
-    /// 数字キーで一人称視点と俯瞰視点を切り替えます。
+    /// 数字キー1で一人称視点、数字キー2で真上固定の俯瞰視点へ切り替えます。
+    /// 俯瞰視点中は一人称用コントローラーを無効化し、プレイヤーの移動と視点操作を停止します。
     /// </summary>
     public sealed class CameraSwitcher : MonoBehaviour
     {
@@ -27,7 +28,7 @@ namespace LaserPuzzle
 
         private void Start()
         {
-            // ゲーム開始時は一人称視点にします。
+            // ステージ開始時の標準視点は一人称とし、移動とマウス視点操作を有効にします。
             SetFirstPersonMode(true);
         }
 

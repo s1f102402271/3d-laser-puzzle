@@ -3,6 +3,11 @@ using UnityEngine.Rendering;
 
 namespace LaserPuzzle
 {
+    /// <summary>
+    /// 発射点から常時照射されるレーザーの経路計算、反射、描画、通常モードのゴール到達通知を担当します。
+    /// ゴール以外の通常Colliderは反射面、LaserBlockingWallを持つColliderは遮断面として扱います。
+    /// 経路全体は最大距離と最大反射回数で制限します。出力値と距離減衰はまだ扱わず、反射による追加減衰も行いません。
+    /// </summary>
     [ExecuteAlways]
     [DisallowMultipleComponent]
     [RequireComponent(typeof(LineRenderer))]
@@ -13,10 +18,10 @@ namespace LaserPuzzle
         [SerializeField] private Transform emissionPoint;
 
         [Tooltip("レーザーが何にも当たらなかった場合に到達する仮の最大距離です。")]
-        // 0.01f未満の値は無効とし、0.01fに補正。
+        // 最大距離は正の値を必須とし、Inspector入力が0.01m未満なら安全な最小値へ補正します。
         [SerializeField, Min(0.01f)] private float maxDistance = 20f;
 
-        [Tooltip("レーザーを停止させるColliderのレイヤーを指定します。")]
+        [Tooltip("レーザーが命中判定を行うColliderのレイヤーを指定します。反射壁、遮断壁、ゴールを含めてください。")]
         [SerializeField] private LayerMask collisionMask = Physics.DefaultRaycastLayers;
 
         [Tooltip("Trigger Colliderをレーザーの命中対象に含めるかを指定します。")]
@@ -33,7 +38,10 @@ namespace LaserPuzzle
         [Tooltip("レーザーの描画に使用するマテリアルです。プロジェクトの赤いレーザー用マテリアルを設定します。")]
         [SerializeField] private Material laserMaterial;
 
+        [Tooltip("LineRendererで表示するレーザーの太さです。見た目を調整する仮パラメータです。")]
         [SerializeField, Min(0.001f)] private float width = 0.05f;
+
+        [Tooltip("LineRendererへ適用するレーザーの色です。見た目を調整する仮パラメータです。")]
         [SerializeField] private Color color = Color.red;
 
         private LineRenderer lineRenderer;
@@ -135,7 +143,7 @@ namespace LaserPuzzle
             EndPosition = origin + direction * maxDistance;
             LaserGoal hitGoal = null;
 
-            // 始点 + 最大反射回数分の衝突点 + 最後の終点を確保します。
+            // LineRendererには始点、各反射点、最終到達点が必要なため、許可される最大点数を先に確保します。
             lineRenderer.positionCount = maxReflections + 2;
             lineRenderer.SetPosition(0, origin);
 
@@ -160,14 +168,13 @@ namespace LaserPuzzle
                 lineRenderer.SetPosition(pointCount, hit.point);
                 pointCount++;
 
-                // Raycastで当たったColliderがゴールかどうかを調べます。
-                // ゴールならhitGoalにLaserGoalが入り、壁などならnullのままです。
+                // ゴールへ到達した場合はそこで経路計算を終了し、通常モードのクリア表示対象として保持します。
                 if (TryFindGoal(hit.collider, out hitGoal))
                 {
                     break;
                 }
 
-                // LaserBlockingWallが付いた壁と、反射上限に達した場合はここで停止します。
+                // 遮断面では反射せず停止します。通常面でも最大反射回数に達した時点を経路の終点とします。
                 if (hit.collider.TryGetComponent<LaserBlockingWall>(out _) ||
                     reflectionCount == maxReflections)
                 {
@@ -183,7 +190,7 @@ namespace LaserPuzzle
                 direction = CalculateReflectedDirection(direction, hit.normal);
                 if (direction.sqrMagnitude < Mathf.Epsilon)
                 {
-                    // 学習用TODOが未完成の間は、衝突地点で安全に停止します。
+                    // 有効な反射方向を計算できない異常値の場合は、無効なRayを継続せず衝突地点で停止します。
                     break;
                 }
 
@@ -193,7 +200,7 @@ namespace LaserPuzzle
 
             lineRenderer.positionCount = pointCount;
 
-            // StraightLaserは編集モードでも動くため、CLEAR判定は再生中だけ更新します。
+            // ExecuteAlwaysによるScene編集時のプレビューではゲーム状態を変更せず、ゴール表示はPlayモード中だけ更新します。
             if (Application.isPlaying)
             {
                 SetActiveGoal(hitGoal);
@@ -203,23 +210,17 @@ namespace LaserPuzzle
 
         private Vector3 CalculateReflectedDirection(Vector3 incomingDirection, Vector3 surfaceNormal)
         {
-            // TODO (学習ポイント): ここで反射方向を計算してください。
-            // ヒント1: Vector3には、入射ベクトルを面の法線で反射するメソッドがあります。
-            // ヒント2: 第1引数は incomingDirection、第2引数は surfaceNormal です。
-            // ヒント3: 計算結果をreturnします。完成まではVector3.zeroでレーザーを停止させます。
+            // 面法線を基準とした鏡面反射を使用し、入射角と反射角が等しくなる方向を返します。
+            // Vector3.Reflectは incoming - 2 * dot(incoming, normal) * normal の式に相当します。
             return Vector3.Reflect(incomingDirection, surfaceNormal);
         }
 
         private bool TryFindGoal(Collider hitCollider, out LaserGoal hitGoal)
         {
-            // まず「ゴールが見つかっていない」状態にします。
-            // out引数なので、呼び出し元のhitGoalにもこの結果が渡ります。
+            // ゴール以外のColliderでは必ずnullを返せるよう、検索前に出力値を未到達状態へ初期化します。
             hitGoal = null;
 
-            // Raycastで当たったColliderと同じGameObjectからLaserGoalを探します。
-            // 見つかった場合：戻り値はtrue、hitGoalには見つけたLaserGoalが入ります。
-            // 見つからない場合：戻り値はfalse、hitGoalはnullのままです。
-            // ※ColliderとLaserGoalが別の親子オブジェクトにある場合は見つかりません。
+            // ゴール判定は命中Colliderと同じGameObjectのLaserGoalだけを対象とし、親子階層は検索しません。
             return hitCollider.TryGetComponent<LaserGoal>(out hitGoal);
         }
 
@@ -227,9 +228,7 @@ namespace LaserPuzzle
         {
             if (currentGoal == nextGoal)
             {
-                // 同じゴールに当たり続けている場合も、表示状態を命中中に保ちます。
-                // Awakeの実行順やInspector操作でClearTextが非表示になっても、
-                // 次のフレームで正しい状態へ戻せます。
+                // 同じゴールへの常時照射中は、別処理で表示が変わっても毎フレーム命中表示へ戻します。
                 if (currentGoal != null)
                 {
                     currentGoal.SetLaserHit(true);
