@@ -3,8 +3,8 @@ using UnityEngine;
 namespace LaserPuzzle
 {
     /// <summary>
-    /// レーザーを反射せず、その場で遮断する壁を示すマーカーです。
-    /// 通常のColliderは反射するため、例外となる壁だけに追加します。
+    /// Colliderをレーザーの遮断面として扱うためのマーカーです。
+    /// StraightLaserはゴール以外の通常Colliderを反射面として扱うため、反射させず命中地点で停止させる面に追加します。
     /// </summary>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(Collider))]

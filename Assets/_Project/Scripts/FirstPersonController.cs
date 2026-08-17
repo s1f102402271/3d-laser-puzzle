@@ -4,7 +4,8 @@ using UnityEngine.InputSystem;
 namespace LaserPuzzle
 {
     /// <summary>
-    /// 一人称視点での歩行とマウス視点操作を担当します。
+    /// 一人称視点でのWASD歩行とマウス視点操作を担当します。
+    /// 現在の実装範囲は水平歩行のみで、ジャンプ、しゃがみ、重力、ダッシュは含みません。
     /// </summary>
     [RequireComponent(typeof(CharacterController))]
     public sealed class FirstPersonController : MonoBehaviour
@@ -18,10 +19,14 @@ namespace LaserPuzzle
         [SerializeField] private InputActionReference lookAction;
 
         [Header("Movement")]
+        [Tooltip("一人称視点での歩行速度（m/s）です。ダッシュは含みません。")]
         [SerializeField, Min(0f)] private float moveSpeed = 4f;
 
         [Header("Look")]
+        [Tooltip("マウス入力1単位あたりの視点回転量です。操作感を調整する仮パラメータです。")]
         [SerializeField, Min(0f)] private float lookSensitivity = 0.1f;
+
+        [Tooltip("一人称視点で上下を向ける最大角度です。")]
         [SerializeField, Range(0f, 90f)] private float maxLookAngle = 80f;
 
         private float pitch;
@@ -77,7 +82,7 @@ namespace LaserPuzzle
             
             Vector3 moveDirection = transform.right * input.x + transform.forward * input.y;
 
-            // 斜め移動だけ速くならないよう、長さを最大1に制限します。
+            // 入力ベクトルを最大1に制限し、斜め移動でも単軸移動と同じ最高速度にします。
             moveDirection = Vector3.ClampMagnitude(moveDirection, 1f);
 
 
@@ -86,23 +91,23 @@ namespace LaserPuzzle
 
         private void Look(Vector2 input)
         {
-            // マウスの左右移動量から、左右の回転角度を求める
+            // 水平入力はプレイヤー本体のY軸回転へ変換し、移動方向と視線方向を一致させます。
             float yaw = input.x * lookSensitivity;
 
-            // Player全体を左右に回す
+            // 左右回転はプレイヤー全体へ適用します。
             transform.Rotate(Vector3.up * yaw);
 
-            // 上下の角度を蓄積する
+            // 垂直入力は上下視点用の角度として蓄積します。
             pitch -= input.y * lookSensitivity;
 
-            // 真上・真下を越えないように制限する
+            // 上下角度を制限し、視点が真上・真下を越えて反転しないようにします。
             pitch = Mathf.Clamp(
                 pitch,
                 -maxLookAngle,
                 maxLookAngle
             );
 
-            // ViewPivotだけを上下に回す
+            // 上下回転はカメラを持つViewPivotだけへ適用し、プレイヤー本体を傾けません。
             viewPivot.localRotation = Quaternion.Euler(pitch, 0f, 0f);
         }
     }

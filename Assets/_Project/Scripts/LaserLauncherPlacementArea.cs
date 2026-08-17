@@ -7,8 +7,8 @@ using UnityEditor;
 namespace LaserPuzzle
 {
     /// <summary>
-    /// レーザー発射装置を1台置ける範囲と、その配置地点を定義します。
-    /// 配置地点を増やす場合は、このコンポーネントを持つエリア自体を追加します。
+    /// レーザー発射装置を配置できる1区画と、その中央にある1つの離散配置地点を定義します。
+    /// ステージに複数候補を用意する場合は、このコンポーネントを持つ区画を候補数だけ配置します。
     /// </summary>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(BoxCollider))]
@@ -26,8 +26,13 @@ namespace LaserPuzzle
         [SerializeField, Min(0f)] private float pointHeightOffset = 0.03f;
 
         [Header("Scene View Preview")]
+        [Tooltip("Sceneビューで表示する発射可能エリアの色です。ゲーム画面の表示色ではありません。")]
         [SerializeField] private Color areaColor = new Color(0.1f, 0.55f, 1f, 0.25f);
+
+        [Tooltip("Sceneビューで表示する配置地点の色です。ゲーム画面の表示色ではありません。")]
         [SerializeField] private Color pointColor = new Color(0.1f, 0.8f, 1f, 1f);
+
+        [Tooltip("Sceneビューで表示する配置地点の半径です。判定範囲には影響しません。")]
         [SerializeField, Min(0.01f)] private float pointRadius = 0.18f;
 
         private BoxCollider areaCollider;
@@ -56,7 +61,7 @@ namespace LaserPuzzle
         }
 
         /// <summary>
-        /// このエリア中央にある配置地点のワールド座標を取得します。
+        /// 区画中央に高さ補正を加えた配置地点をワールド座標で返します。
         /// </summary>
         public Vector3 GetPlacementPointPosition()
         {
@@ -65,7 +70,7 @@ namespace LaserPuzzle
         }
 
         /// <summary>
-        /// このエリアが持つ唯一の配置地点を取得します。
+        /// この区画が持つ唯一の配置地点を返します。現在は常に1地点を持つため成功します。
         /// </summary>
         public bool TryGetPlacementPoint(out Vector3 placementPosition)
         {
@@ -88,7 +93,7 @@ namespace LaserPuzzle
                 return;
             }
 
-            // TransformのY=0をエリア表面に合わせます。
+            // 区画のTransform位置を床面として扱い、BoxCollider全体が床面より下側へ伸びるようにします。
             areaCollider.center = new Vector3(0f, -colliderThickness * 0.5f, 0f);
             areaCollider.size = new Vector3(areaSize.x, colliderThickness, areaSize.y);
             areaCollider.isTrigger = false;

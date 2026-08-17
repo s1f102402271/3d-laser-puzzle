@@ -3,8 +3,8 @@ using UnityEngine;
 namespace LaserPuzzle
 {
     /// <summary>
-    /// カメラ中央の視線から発射可能エリアを探し、そのエリアの配置地点をプレビューします。
-    /// この段階では照準だけを担当し、クリック入力や発射装置の生成は行いません。
+    /// 一人称カメラの画面中央からRayを飛ばし、照準中の発射可能エリアが持つ離散配置地点を取得します。
+    /// このコンポーネントは候補地点の検出とプレビューだけを担当し、入力処理と発射装置の生成は行いません。
     /// </summary>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(Camera))]
@@ -75,13 +75,11 @@ namespace LaserPuzzle
                 return false;
             }
 
-            // Viewportでは、画面の左下が(0, 0)、右上が(1, 1)です。
-            // したがって(0.5, 0.5)からRayを作ると、画面中央の視線になります。
+            // Viewport中央の(0.5, 0.5)からRayを作り、画面中央の照準位置を判定します。
             Ray aimRay = aimCamera.ViewportPointToRay(
                 new Vector3(0.5f, 0.5f, 0f));
 
-            // 指定距離内で、placementAreaMaskに含まれるColliderだけを調べます。
-            // Triggerは配置面として使わないため、ここでは無視します。
+            // 配置候補は最大照準距離内かつplacementAreaMaskに含まれる通常Colliderに限定し、Triggerは対象外とします。
             if (!Physics.Raycast(
                     aimRay,
                     out RaycastHit hit,
@@ -92,15 +90,14 @@ namespace LaserPuzzle
                 return false;
             }
 
-            // Rayが何かに当たっても、それが発射可能エリアとは限りません。
-            // Colliderと同じGameObjectから専用コンポーネントを探します。
+            // LayerMask内の別オブジェクトを配置面と誤認しないよう、命中Colliderと同じGameObjectに専用コンポーネントがあることを要求します。
             if (!hit.collider.TryGetComponent(
                     out LaserLauncherPlacementArea placementArea))
             {
                 return false;
             }
 
-            // 1エリアにつき配置地点は1つなので、当たったエリアの中央地点を取得します。
+            // 現在は1エリアにつき1地点の仕様なので、命中したエリアの中央配置地点を返します。
             return placementArea.TryGetPlacementPoint(out placementPosition);
         }
 

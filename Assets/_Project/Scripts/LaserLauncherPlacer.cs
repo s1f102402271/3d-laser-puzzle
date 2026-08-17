@@ -4,8 +4,8 @@ using UnityEngine.InputSystem;
 namespace LaserPuzzle
 {
     /// <summary>
-    /// 選択中の配置地点へ、レーザー発射装置を1台だけ配置します。
-    /// すでに配置済みの場合は、新しく生成せずに既存の装置を移動します。
+    /// 左クリック時に照準中の離散配置地点へレーザー発射装置を1台だけ配置します。
+    /// 配置済みの場合は新しい装置を生成せず同じ装置を移動します。発射状態による再配置禁止はまだ扱いません。
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class LaserLauncherPlacer : MonoBehaviour

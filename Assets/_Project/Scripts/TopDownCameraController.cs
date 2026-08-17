@@ -4,18 +4,24 @@ using UnityEngine.InputSystem;
 namespace LaserPuzzle
 {
     /// <summary>
-    /// 真上固定の俯瞰カメラを一定の表示範囲で平行移動します。
-    /// 回転操作は持たず、向きと高さは常に固定します。
+    /// ステージを平面的に把握するための真上固定・平行投影の俯瞰カメラです。
+    /// X/Z平面上の指定範囲だけを平行移動し、回転、高さ変更、ズーム操作は行いません。
     /// </summary>
     [RequireComponent(typeof(Camera))]
     public sealed class TopDownCameraController : MonoBehaviour
     {
         [Header("Pan")]
+        [Tooltip("俯瞰カメラを平行移動する速度（m/s）です。操作感を調整する仮パラメータです。")]
         [SerializeField, Min(0f)] private float panSpeed = 8f;
+
+        [Tooltip("俯瞰カメラ中心が移動できるX/Z範囲の最小値です。")]
         [SerializeField] private Vector2 minimumPosition = new(-8f, -8f);
+
+        [Tooltip("俯瞰カメラ中心が移動できるX/Z範囲の最大値です。")]
         [SerializeField] private Vector2 maximumPosition = new(8f, 8f);
 
         [Header("View")]
+        [Tooltip("俯瞰カメラの固定Orthographic Sizeです。ズーム実装前の仮パラメータです。")]
         [SerializeField, Min(0.01f)] private float fixedOrthographicSize = 10f;
 
         private Camera topDownCamera;
@@ -26,7 +32,7 @@ namespace LaserPuzzle
             topDownCamera = GetComponent<Camera>();
             fixedHeight = transform.position.y;
 
-            // 遠近感で高さを読み取る視点ではなく、平面を確認する視点にします。
+            // 俯瞰視点では遠近感を使わず配置と経路を比較できるよう、平行投影を強制します。
             topDownCamera.orthographic = true;
             KeepTopDownPose();
         }
@@ -38,7 +44,7 @@ namespace LaserPuzzle
 
         private void LateUpdate()
         {
-            // 別の処理からTransformが変更されても、斜め視点にはしません。
+            // 外部処理やInspector操作でTransformが変わっても、毎フレーム真上固定の仕様へ戻します。
             KeepTopDownPose();
         }
 
